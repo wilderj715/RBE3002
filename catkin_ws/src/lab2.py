@@ -57,15 +57,15 @@ def driveStraight(speed, distance):
 
 	global pose
 
-	initialX = pose.position.x    
-	initialY = pose.position.y
+	initialX = pose.pose.position.x    
+	initialY = pose.pose.position.y
 	atTarget = False
 
 	vel = Twist()
 
 	while(not atTarget and not rospy.is_shutdown()):
-		currentX = pose.position.x
-		currentY = pose.position.y
+		currentX = pose.pose.position.x
+		currentY = pose.pose.position.y
 		currentDistance = math.sqrt((currentX - initialX)**2 + (currentY - initialY)**2)
 
 		if (currentDistance >= distance):
@@ -90,20 +90,26 @@ def rotate(angle):
 	vel = Twist()
 	done = True
 
-	error = angle-math.degrees(pose.orientation.z)
+	error = angle-math.degrees(pose.pose.orientation.z)
 
 	if angle > 0:
 		turn = 1
 	else:
 		turn = -1
 
+	print vel.angular.z 
+	print error
+
 	while ((abs(error) >= 2) and not rospy.is_shutdown()):
+		error = angle-math.degrees(pose.pose.orientation.z)
+		print pose.pose.orientation.z 
+		print error
 		if(turn == 1):
 			vel.angular.z = 0.5
 		else:
 			vel.angular.z = -0.5
 		pub.publish(vel)
-
+		
 	vel.angular.z = 0.0
 	pub.publish(vel)
 
@@ -135,7 +141,11 @@ def timerCallback(event):
 
     pose = Pose()
 
-    (position, orientation) = odom_list.lookupTransform('...','...', rospy.Time(0)) #finds the position and oriention of two objects relative to each other (hint: this returns arrays, while Pose uses lists)
+    (position, orientation) = odom_list.lookupTransform('map','base_footprint', rospy.Time(0)) #finds the position and oriention of two objects relative to each other (hint: this returns arrays, while Pose uses lists)
+
+
+    pose.position.x=position[0]
+    pose.position.y=position[1]
 
     pass # Delete this 'pass' once implemented
 
@@ -152,7 +162,7 @@ if __name__ == '__main__':
     global pose
     global odom_tf
     global odom_list
-    pose = Pose()
+    pose = PoseStamped()
 
     # Replace the elipses '...' in the following lines to set up the publishers and subscribers the lab requires
     pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, None, queue_size = 10) # Publisher for commanding robot motion
@@ -165,7 +175,10 @@ if __name__ == '__main__':
     rospy.sleep(rospy.Duration(1, 0))
     print "Starting Lab 2"
 	
+    rospy.Timer(rospy.Duration(.01), timerCallback)
+    rotate(92)
     driveStraight(.1,10)
+    odom_list = tf.TransformListener()
 
 	#make the robot keep doing something...
 	#rospy.Timer(rospy.Duration(...), timerCallback)
