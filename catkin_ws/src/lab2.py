@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
-import rospy, tf
-from kobuki_msgs.msg import BumperEvent
-import math
+import rospy, tf, numpy, math
 
+from kobuki_msgs.msg import BumperEvent
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
@@ -21,7 +20,10 @@ def navToPose(goal):
 
 #This function sequentially calls methods to perform a trajectory.
 def executeTrajectory():
-    
+    	driveStraight(.2, 1)
+	rotate(90)
+	driveStraight(.2, 0.5)
+	rotate(135)
 	pass  # Delete this 'pass' once implemented
 
 
@@ -81,6 +83,7 @@ def driveStraight(speed, distance):
 def rotate(angle):
 	global odom_list
 	global pose
+	global theta
 
 	turn = 0
 
@@ -89,29 +92,47 @@ def rotate(angle):
 
 	vel = Twist()
 	done = True
+        
+	start = theta
+	error = angle
+	atTarget = False
+	final = start + angle
 
-	error = angle-math.degrees(pose.pose.orientation.z)
-
-	if angle > 0:
-		turn = 1
+	if final > 180:
+		final = final - 360
 	else:
+		final = final + 360
+
+	if angle < 0:
 		turn = -1
+	else:
+		turn = 1
 
-	print vel.angular.z 
-	print error
-
-	while ((abs(error) >= 2) and not rospy.is_shutdown()):
-		error = angle-math.degrees(pose.pose.orientation.z)
-		#print pose.pose.orientation.z 
-		#print error
-		if(turn == 1):
-			vel.angular.z = 0.5
+	#print pose.pose.orientation.z
+	current = abs(theta - start)
+	print current
+	print start
+	print theta
+	while not atTarget and not rospy.is_shutdown():
+		current = abs(theta - start)
+		if(current > abs(angle)):
+			atTarget = True
+			vel.angular.z = 0.0
+			print "poo"
+			print current
+			print start
+			print theta
+			pub.publish(vel)
 		else:
-			vel.angular.z = -0.5
-		pub.publish(vel)
-		
-	vel.angular.z = 0.0
-	pub.publish(vel)
+			vel.angular.z = turn*0.5
+			print "poop"
+			pub.publish(vel)
+		rospy.sleep(0.2)
+			
+	
+	#print pose.pose.orientation.z 
+	#print theta
+	
 
 
 #This function works the same as rotate how ever it does not publish linear velocities.
@@ -124,7 +145,10 @@ def driveArc(radius, speed, angle):
 
 #Bumper Event Callback function
 def readBumper(msg):
+    print "gets here"
     if (msg.state == 1):
+	print "here too"
+	#rotate(90)
         publishTwist(0,0)
 
 
@@ -140,7 +164,7 @@ def timerCallback(event):
     global theta
 
     pose = PoseStamped()
-    print "hi"
+    #print "hi"
     (position, orientation) = odom_list.lookupTransform('odom','base_footprint', rospy.Time(0)) #finds the position and oriention of two objects relative to each other (hint: this returns arrays, while Pose uses lists)
 
 
@@ -166,11 +190,15 @@ if __name__ == '__main__':
     global pose
     global odom_tf
     global odom_list
+    global theta
     pose = PoseStamped()
+
+    theta = 0
+
 
     # Replace the elipses '...' in the following lines to set up the publishers and subscribers the lab requires
     pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, None, queue_size = 10) # Publisher for commanding robot motion
-    bumper_sub = rospy.Subscriber('...', BumperEvent, readBumper, queue_size=1) # Callback function to handle bumper events
+    bumper_sub = rospy.Subscriber('/mobile_base/events/bumper', BumperEvent, readBumper, queue_size=1) # Callback function to handle bumper events
 
     # Use this object to get the robot's Odometry
     odom_list = tf.TransformListener()
@@ -180,8 +208,9 @@ if __name__ == '__main__':
     print "Starting Lab 2"
 	
     rospy.Timer(rospy.Duration(.01), timerCallback)
-    rotate(-45)
-    driveStraight(.1,2)
+    rotate(90)
+    #driveStraight(.1, 5)
+    #executeTrajectory()
     #odom_list = tf.TransformListener()
 
 	#make the robot keep doing something...
