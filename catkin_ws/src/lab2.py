@@ -102,8 +102,8 @@ def rotate(angle):
 
 	while ((abs(error) >= 2) and not rospy.is_shutdown()):
 		error = angle-math.degrees(pose.pose.orientation.z)
-		print pose.pose.orientation.z 
-		print error
+		#print pose.pose.orientation.z 
+		#print error
 		if(turn == 1):
 			vel.angular.z = 0.5
 		else:
@@ -139,15 +139,19 @@ def timerCallback(event):
     global ypos
     global theta
 
-    pose = Pose()
+    pose = PoseStamped()
+    print "hi"
+    (position, orientation) = odom_list.lookupTransform('odom','base_footprint', rospy.Time(0)) #finds the position and oriention of two objects relative to each other (hint: this returns arrays, while Pose uses lists)
 
-    (position, orientation) = odom_list.lookupTransform('map','base_footprint', rospy.Time(0)) #finds the position and oriention of two objects relative to each other (hint: this returns arrays, while Pose uses lists)
 
+    pose.pose.position.x=position[0]
+    pose.pose.position.y=position[1]
 
-    pose.position.x=position[0]
-    pose.position.y=position[1]
-
-    pass # Delete this 'pass' once implemented
+    odomW = orientation
+    q = [odomW[0], odomW[1], odomW[2], odomW[3]]
+    roll, pitch, yaw = euler_from_quaternion(q)
+    pose.pose.orientation.z = yaw
+    theta = math.degrees(yaw)
 
 
 
@@ -176,9 +180,9 @@ if __name__ == '__main__':
     print "Starting Lab 2"
 	
     rospy.Timer(rospy.Duration(.01), timerCallback)
-    rotate(92)
-    driveStraight(.1,10)
-    odom_list = tf.TransformListener()
+    rotate(-45)
+    driveStraight(.1,2)
+    #odom_list = tf.TransformListener()
 
 	#make the robot keep doing something...
 	#rospy.Timer(rospy.Duration(...), timerCallback)
