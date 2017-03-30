@@ -14,7 +14,39 @@ from tf.transformations import euler_from_quaternion
 
 #drive to a goal subscribed as /move_base_simple/goal
 def navToPose(goal):
+	print "hit"
+	global pose
+	global theta
+	
+	#get goal pose
+	goal = goal.pose
+	# get quaternion, convert to euler
+	quat = [goal.orientation.x, goal.orientation.y, goal.orientation.z, goal.orientation.w]
+	euler = euler_from_quaternion(quat)
 
+	#get the final theta of the goal pose
+	theta1 = math.degrees(euler[2])
+	print "euler: ", euler
+	print "theta1: ", theta1
+	
+	#find the global angle to get between positions
+	g_theta = math.degrees(math.atan((goal.position.y-pose.pose.position.y)/(goal.position.x-pose.pose.position.x)))
+	print "g_theta: ", g_theta
+	
+	#find the first angle to rotate through
+	first_theta = g_theta - math.degrees(pose.pose.orientation.z)
+	print "first_theta: ", first_theta
+	
+	#find the distance
+	distance = math.sqrt(math.pow(goal.position.x - pose.pose.position.x, 2) + math.pow(goal.position.x - pose.pose.position.y, 2))
+
+	#find the angle to rotate at the end
+	f_theta = theta1 - g_theta
+	
+	rotate(first_theta)
+	driveStraight(0.5, distance)
+	rotate(f_theta)
+	
 	pass
 
 
@@ -94,14 +126,9 @@ def rotate(angle):
 	done = True
         
 	start = theta
-	error = angle
-	atTarget = False
-	final = start + angle
 
-	if final > 180:
-		final = final - 360
-	else:
-		final = final + 360
+	atTarget = False
+
 
 	if angle < 0:
 		turn = -1
@@ -109,23 +136,34 @@ def rotate(angle):
 		turn = 1
 
 	#print pose.pose.orientation.z
-	current = abs(theta - start)
-	print current
-	print start
-	print theta
+	#current = abs(theta - start)
+	#print current
+	isStarted = False
+	print "initial theta: ", theta
+	print "angle: ", angle
 	while not atTarget and not rospy.is_shutdown():
 		current = abs(theta - start)
+		if current > 180:
+			current = 360 - current
 		if(current > abs(angle)):
 			atTarget = True
 			vel.angular.z = 0.0
-			print "poo"
-			print current
-			print start
-			print theta
+			print "done"
+			print "curr, ", current
+			print "start: ", start
+			print "theta: ", theta
+			print "angle: ", angle
 			pub.publish(vel)
 		else:
 			vel.angular.z = turn*0.5
-			print "poop"
+			#print "curr, ", current
+			#print "start: ", start
+			#print "theta: ", theta
+			#print "angle: ", angle
+			if(isStarted == False):
+				rospy.sleep(0.2)
+				isStarted = True
+				start = theta
 			pub.publish(vel)
 		rospy.sleep(0.2)
 			
@@ -179,7 +217,6 @@ def timerCallback(event):
 
 
 
-
 # This is the program's main function
 if __name__ == '__main__':
     # Change this node name to include your username
@@ -200,6 +237,8 @@ if __name__ == '__main__':
     pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, None, queue_size = 10) # Publisher for commanding robot motion
     bumper_sub = rospy.Subscriber('/mobile_base/events/bumper', BumperEvent, readBumper, queue_size=1) # Callback function to handle bumper events
 
+    click_sub = rospy.Subscriber('/move_base_simple/goal', PoseStamped, navToPose)
+
     # Use this object to get the robot's Odometry
     odom_list = tf.TransformListener()
 
@@ -207,9 +246,11 @@ if __name__ == '__main__':
     rospy.sleep(rospy.Duration(1, 0))
     print "Starting Lab 2"
 	
-    rospy.Timer(rospy.Duration(.01), timerCallback)
-    rotate(90)
-    #driveStraight(.1, 5)
+    rospy.Timer(rospy.Duration(.1), timerCallback)
+
+    while(1):
+	rospy.sleep(0.2)
+        
     #executeTrajectory()
     #odom_list = tf.TransformListener()
 
